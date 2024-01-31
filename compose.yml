@@ -1,0 +1,54 @@
+services:
+  db:
+    image: mysql:latest
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 --password="$$(cat /run/secrets/db_password)" --silent
+      interval: 1s
+      retries: 30
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_DATABASE: avatar
+    networks:
+      - private
+    secrets:
+      - db_password
+    volumes:
+      - data:/var/lib/mysql
+
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/api.dockerfile
+    ports:
+      - "5734:80"
+    networks:
+      - private
+    secrets:
+      - db_password
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: ./deploy/web.dockerfile
+    ports:
+      - "5735:5173"
+    networks:
+      - private
+      - public
+    depends_on:
+      - api
+
+networks:
+  private:
+    internal: true
+  public: {}
+
+secrets:
+  db_password:
+    file: ~/.DB_SECRET
+
+volumes:
+  data: {}
